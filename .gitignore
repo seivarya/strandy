@@ -1,6 +1,10 @@
 # Prerequisites
 *.d
 
+# Clangd files
+compile_commands.json
+.cache
+
 # Object files
 *.o
 *.ko
