@@ -18,9 +18,10 @@ void worker (void *arg) {
 	printf("tid=%p, old=%d, val=%d\n", (void*)pthread_self(), old, *val);
 
 	if (*val % 2) {
-		usleep(100000);
-	printf("[call]: worker on sleep\n");
+		usleep(1000);
+		printf("[call]: worker on sleep\n");
 	}
+	return;
 }
 
 int main(int argc, char **argv) {
@@ -33,7 +34,6 @@ int main(int argc, char **argv) {
 	for (i = 0; i < items; i++) {
 		vals[i] = i;
 		exec_add_work(exec, worker, vals + i);
-		fprintf(stdout, "work inserted [%zu]\n", i);
 	}
 
 	exec_wait(exec);

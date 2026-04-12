@@ -37,6 +37,7 @@ int exec_work_destroy(exec_work *work);
 bool exec_add_work(executor *exec, exec_func func, void *arg);
 int exec_wait(executor *exec);
 
+void* exec_worker(void *arg);
 
 
 #endif
