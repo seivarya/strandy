@@ -1,2 +1,2 @@
 build:
-	gcc -Iinclude src/queue.c -o queue
+	gcc -Iinclude src/queue.c src/executor.c tests/main.c -o run
