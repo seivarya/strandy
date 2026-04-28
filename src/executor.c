@@ -4,8 +4,11 @@
 #include <stdlib.h>
 
 executor* exec_create(size_t num) {
+
 	executor *exec = malloc(sizeof(executor));
+
 	if (exec == NULL) return NULL;
+
 	pthread_t thread;
 	pthread_attr_t attr;
 	size_t i;
@@ -19,20 +22,19 @@ executor* exec_create(size_t num) {
 
 	exec->thread_count = num;
 
-	exec = calloc(1, sizeof(*exec));
 	if (exec == NULL) return NULL;
 
 	pthread_mutex_init(&(exec->work_mutex), NULL);
 	pthread_cond_init(&(exec->work_cond), NULL);
 	pthread_cond_init(&(exec->working_cond), NULL);
-	printf("[pthread vars init]: mutex, cond, initialized\n");
+
 	exec->work_queue = queue_create(); // initialize queue.
 
 	for (size_t i = 0; i < num; i++) {
 		pthread_create(&thread, &attr, exec_worker, exec); 
-		// tpool_worker()
 	}
-	fprintf(stdout, "[exec_create]: executor initialized\n");
+
+	fprintf(stdout, "[exec_create()]: executor initialized\n");
 	return exec;
 }
 
@@ -40,14 +42,12 @@ int exec_destroy(executor *exec) {
 	if (exec == NULL) return 1;
 
 	pthread_mutex_lock(&(exec->work_mutex));
-	queue_destroy(exec->work_queue);
 	exec->stop = true;
 
 	pthread_cond_broadcast(&(exec->work_cond));
 	pthread_mutex_unlock(&(exec->work_mutex));
 
 	if ((exec_wait(exec)) != 0) {
-		fprintf(stderr, "[err]: wait func failed\n");
 		return 1;
 	}
 
@@ -55,9 +55,10 @@ int exec_destroy(executor *exec) {
 	pthread_cond_destroy(&(exec->working_cond));
 	pthread_cond_destroy(&(exec->work_cond));
 
+	queue_destroy(exec->work_queue);
 	free(exec);
 
-	fprintf(stdout, "[exec_destruct]: executor destroyed\n");
+	fprintf(stdout, "[exec_destroy()]: executor destroyed\n");
 
 	return 0;
 }
@@ -69,33 +70,30 @@ exec_work* exec_work_create(exec_func func, void *arg) {
 	work->func = func;
 	work->arg = arg;
 
+	fprintf(stdout, "[exec_work_create()]: work object created\n");
 	return work;
 }
 
 int exec_work_destroy(exec_work *work) {
-
 	if (work == NULL) {
 		return 1;
 	}
-
 	free(work);
+	fprintf(stdout, "[exec_work_destroy()]: work object destroyed\n");
 	return 0;
 }
 
 int exec_wait(executor *exec) {
-	fprintf(stdout, "[exec_wait]: waiting method called\n");
-	if (exec == NULL) return 1;
+	if (exec == NULL) return 0; // bug: might cause segfault later
+
 	pthread_mutex_lock(&(exec->work_mutex));
 
-	while (1) {
-		if ((exec_work *)peek(exec->work_queue) != NULL || (!exec->stop && exec->working_count != 0) || (exec->stop && exec->thread_count != 0)) {
-			fprintf(stdout, "[exec_wait]: waiting..\n");
-			pthread_cond_wait(&(exec->working_cond), &(exec->work_mutex));
-			fprintf(stdout, "[exec_wait]: cond_wait sent through exec_wait\n");
-		} else {
-			fprintf(stdout, "[exec_wait]: breaking out of wait\n");
-			break; 
+	while (((exec->working_count > 0) || !is_empty(exec->work_queue))) {
+		if (exec->stop) {
+			break;
 		}
+		fprintf(stdout, "[exec_wait::DEBUG]: waitiing..\n");
+		pthread_cond_wait(&(exec->working_cond),&(exec->work_mutex));
 	}
 
 	pthread_mutex_unlock(&(exec->work_mutex));
@@ -103,21 +101,21 @@ int exec_wait(executor *exec) {
 }
 
 bool exec_add_work(executor *exec, exec_func func, void *arg) {
-	exec_work *work;
-	exec_work *smth;
-
 	if (exec == NULL) return false;
-	work = exec_work_create(func, arg);
-
-	if (work == NULL) return false; // todo: err handler  
 	pthread_mutex_lock(&(exec->work_mutex));
+
+	exec_work *work = exec_work_create(func, arg);
+
+	if (work == NULL) { 
+		pthread_mutex_unlock(&(exec->work_mutex));
+		return false; // todo: err handler  
+	}
 
 	enqueue(exec->work_queue, work, sizeof(exec_work));
 
 	pthread_cond_broadcast(&(exec->working_cond));
 	pthread_mutex_unlock(&(exec->work_mutex));
 
-	fprintf(stdout, "[add_work]: added the work to queue\n");
 	return true;
 }
 
@@ -125,14 +123,12 @@ void* exec_worker(void *arg) {
 	executor *exec = arg;
 	exec_work *work;
 
-	fprintf(stdout, "[executor]: pool started\n");
 	while(1) {
 		pthread_mutex_lock(&(exec->work_mutex));
 
-		while((exec_work *)peek(exec->work_queue) == NULL && !exec->stop) {
-			printf("[state]: worker queue is null & the pool continues\n");
-			// add cond_wait and rest of logic 
-			pthread_cond_wait(&(exec->working_cond), &(exec->work_mutex));
+		while(!exec->stop && is_empty(exec->work_queue)) {
+			fprintf(stdout, "[exec_worker::DEBUG]: waiting..\n");
+			pthread_cond_wait(&(exec->work_cond), &(exec->work_mutex));
 		}
 		if (exec->stop) break;
 
@@ -153,8 +149,7 @@ void* exec_worker(void *arg) {
 
 		pthread_mutex_lock(&(exec->work_mutex));
 		exec->working_count--;
-
-		if (!exec->stop && exec->working_count == 0 && (exec_work *)peek(exec->work_queue) == NULL) {
+		if (!exec->stop && exec->working_count == 0 && !is_empty(exec->work_queue)) {
 			pthread_cond_signal(&(exec->working_cond)); // sleeps when working counts is 0 and queue is empty
 			fprintf(stdout, "[executor]: queue is empty and working objects are none\ngoing to sleep...\n");
 		}

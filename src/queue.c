@@ -2,7 +2,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 
 queue* queue_create() {
 	queue *q = malloc(sizeof(queue));
@@ -13,35 +12,30 @@ queue* queue_create() {
 	q->head = NULL;
 	q->tail = NULL;
 	q->length = 0;
-
-	pthread_mutex_init(q->lock, NULL);
-	pthread_cond_init(q->cond, NULL);
+	q->shutdown = 0; // NO
 
 	return q;
 }
 
 int queue_destroy(queue *q) {
-	pthread_mutex_lock(q->lock);
 	if (!q) {
 		return 1;
 	}
-
+	
+	q->shutdown = 1; //  fix: remove it later
+			 
 	node *cur = q->head;
 	while (cur) {
 		node *next = cur->next;
 		node_destroy(cur);
 		cur = next;
-	} 
+	}
 
-	// todo: destroy the mutex & cond & queue itself
-	
-	pthread_mutex_unlock(q->lock);
 	free(q);
 	return 0;
 }
 
 int enqueue(queue *q, void *data, size_t size) {
-	pthread_mutex_lock(q->lock);
 	if (!q || !data || size == 0) {
 		return 1;
 	}
@@ -61,25 +55,15 @@ int enqueue(queue *q, void *data, size_t size) {
 
 	q->length++;
 
-	pthread_cond_signal(q->cond);
-	pthread_mutex_unlock(q->lock);
-
+	printf("[queue]: enqueued\n");
 	return 0;
 }
 
-node* dequeue(queue *q) { //  BUG:  dequeue removes the node and *peek returns it 2 opeartions might cause race conditions
+int dequeue(queue *q) { 
 	
-	pthread_mutex_lock(q->lock);
-
-	if (q->length == 0) {
-		pthread_cond_wait(q->cond, q->lock);
-	}
-
 	if (!q || !q->head) {
-		pthread_mutex_unlock(q->lock);
-		return NULL;
+		return 0;
 	}
-
 	node *n = q->head;
 	q->head = q->head->next;
 
@@ -89,21 +73,22 @@ node* dequeue(queue *q) { //  BUG:  dequeue removes the node and *peek returns i
 
 	q->length--;
 
-	pthread_mutex_unlock(q->lock);
-	return n;
+	return 0;
+	printf("[queue]: dequeued\n");
 }
 
 int is_empty(queue *q) {
-	return q && q->length == 0; // mutex lock unlock not needed here since it's atomic op
+	fprintf(stdout, "[is_empty]: triggered\n");
+	int empty = (q->length == 0);
+	return empty;
 }
 
 void* peek(queue *q) {
-	pthread_mutex_lock(q->lock);
 	if (!q || !q->head) {
-		pthread_mutex_unlock(q->lock);
 		return NULL;
 	}
-	pthread_mutex_unlock(q->lock);
+	printf("[queue]: peeked\n");
+	
 	return q->head->data; // perhaps i should store data in a variable first then unlock mutex & return?
 }
 
@@ -141,3 +126,4 @@ int node_destroy(node *n) {
 
 	return 0;
 } /* queue_c */
+

@@ -8,18 +8,16 @@
 
 
 static const size_t threads = 4;
-static const size_t items = 40;
+static const size_t items = 10;
 
 void worker (void *arg) {
-	printf("[call]: worker method called\n");
 	int *val = arg;
 	int old = *val;
-	*val += 10000;
+	*val += 1;
 	printf("tid=%p, old=%d, val=%d\n", (void*)pthread_self(), old, *val);
 
 	if (*val % 2) {
 		usleep(1000);
-		printf("[call]: worker on sleep\n");
 	}
 	return;
 }
@@ -30,6 +28,7 @@ int main(int argc, char **argv) {
 	size_t i;
 	printf("[main]: main func\n");
 	exec = exec_create(threads);
+
 	vals = calloc(items, sizeof(*vals));
 	for (i = 0; i < items; i++) {
 		vals[i] = i;
@@ -41,9 +40,10 @@ int main(int argc, char **argv) {
 	for (i = 0; i < items; i++) {
 		printf("%d\n", vals[i]);
 	}
-
 	free(vals);
+	printf("[end]: yay\n");
 	exec_destroy(exec);
+	printf("[end]: yay\n");
 	return 0;
 
 }
