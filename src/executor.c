@@ -25,7 +25,7 @@ executor* exec_create(size_t num) {
 	pthread_mutex_init(&(exec->work_mutex), NULL);
 	pthread_cond_init(&(exec->work_cond), NULL);
 	pthread_cond_init(&(exec->working_cond), NULL);
-
+	printf("[pthread vars init]: mutex, cond, initialized\n");
 	exec->work_queue = queue_create(); // initialize queue.
 
 	for (size_t i = 0; i < num; i++) {
@@ -89,9 +89,9 @@ int exec_wait(executor *exec) {
 
 	while (1) {
 		if ((exec_work *)peek(exec->work_queue) != NULL || (!exec->stop && exec->working_count != 0) || (exec->stop && exec->thread_count != 0)) {
-	fprintf(stdout, "[exec_wait]: waiting..\n");
+			fprintf(stdout, "[exec_wait]: waiting..\n");
 			pthread_cond_wait(&(exec->working_cond), &(exec->work_mutex));
-	fprintf(stdout, "[exec_wait]: cond_wait sent through exec_wait\n");
+			fprintf(stdout, "[exec_wait]: cond_wait sent through exec_wait\n");
 		} else {
 			fprintf(stdout, "[exec_wait]: breaking out of wait\n");
 			break; 
