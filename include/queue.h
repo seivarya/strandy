@@ -11,7 +11,7 @@ typedef struct node {
 
 typedef struct queue {
 	node *head;
-	node *tail; //  todo: not required for now i think?
+	node *tail;
 	size_t length;
 
 	int shutdown;
@@ -21,7 +21,7 @@ typedef struct queue {
 node* node_create(void *data, size_t size);
 int node_destroy(node *n);
 
-queue* queue_create();
+queue* queue_create(void);
 int queue_destroy(queue *q);
 
 

@@ -24,7 +24,7 @@ typedef struct executor {
 
 	pthread_cond_t non_empty; // there are threads in queue waiting to be processed
 	pthread_cond_t empty; // there are no threads to be processed!
-			      
+
 	size_t working_count; // number of threads actively being processed.
 	size_t pending_count;
 
